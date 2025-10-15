@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}معرض الصور - S3 Gallery{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .image-card {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .image-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        }
+        
+        .upload-area {
+            border: 2px dashed #e2e8f0;
+            transition: all 0.3s ease;
+        }
+        
+        .upload-area:hover {
+            border-color: #667eea;
+            background-color: rgba(102, 126, 234, 0.1);
+        }
+        
+        .flash-message {
+            animation: slideIn 0.5s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+<body class="text-white">
+    <!-- Navigation -->
+    <nav class="bg-white bg-opacity-10 backdrop-blur-lg border-b border-white border-opacity-20">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <i class="fas fa-images text-2xl text-white ml-3"></i>
+                    <h1 class="text-xl font-bold text-white">معرض الصور S3</h1>
+                </div>
+                <div class="flex items-center space-x-4 space-x-reverse">
+                    <a href="{{ url_for('index') }}" class="flex items-center px-4 py-2 rounded-lg bg-white bg-opacity-20 hover:bg-opacity-30 transition-all">
+                        <i class="fas fa-home ml-2"></i>
+                        الرئيسية
+                    </a>
+                    <a href="{{ url_for('upload') }}" class="flex items-center px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 transition-all">
+                        <i class="fas fa-upload ml-2"></i>
+                        رفع صورة
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="fixed top-20 left-4 z-50 space-y-2">
+                {% for category, message in messages %}
+                    <div class="flash-message px-6 py-4 rounded-lg shadow-lg max-w-md
+                        {% if category == 'error' %}bg-red-600 border border-red-500{% endif %}
+                        {% if category == 'success' %}bg-green-600 border border-green-500{% endif %}
+                        {% if category == 'warning' %}bg-yellow-600 border border-yellow-500{% endif %}
+                        {% if category == 'info' %}bg-blue-600 border border-blue-500{% endif %}">
+                        <div class="flex items-center">
+                            {% if category == 'error' %}
+                                <i class="fas fa-exclamation-circle ml-3 text-xl"></i>
+                            {% elif category == 'success' %}
+                                <i class="fas fa-check-circle ml-3 text-xl"></i>
+                            {% elif category == 'warning' %}
+                                <i class="fas fa-exclamation-triangle ml-3 text-xl"></i>
+                            {% else %}
+                                <i class="fas fa-info-circle ml-3 text-xl"></i>
+                            {% endif %}
+                            <span class="font-medium">{{ message }}</span>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white bg-opacity-10 backdrop-blur-lg border-t border-white border-opacity-20 mt-16">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div class="text-center">
+                <p class="text-white text-opacity-80">
+                    <i class="fas fa-cloud ml-2"></i>
+                    معرض الصور بتقنية AWS S3 - دورة AWS الشاملة
+                </p>
+                <p class="text-white text-opacity-60 text-sm mt-2">
+                    تم تطويره باستخدام Flask و AWS S3
+                </p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Auto-hide flash messages after 5 seconds
+        setTimeout(function() {
+            const flashMessages = document.querySelectorAll('.flash-message');
+            flashMessages.forEach(function(message) {
+                message.style.transition = 'opacity 0.5s ease';
+                message.style.opacity = '0';
+                setTimeout(function() {
+                    message.remove();
+                }, 500);
+            });
+        }, 5000);
+    </script>
+</body>
+</html>

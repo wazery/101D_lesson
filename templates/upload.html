@@ -1,0 +1,229 @@
+{% extends "base.html" %}
+
+{% block title %}رفع صورة جديدة{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <div class="text-center mb-8">
+        <h1 class="text-3xl font-bold text-white mb-4">
+            <i class="fas fa-upload text-blue-300 ml-3"></i>
+            رفع صورة جديدة
+        </h1>
+        <p class="text-white text-opacity-80">
+            اختر صورة من جهازك لإضافتها إلى المعرض
+        </p>
+    </div>
+
+    <div class="bg-white bg-opacity-10 backdrop-blur-lg rounded-2xl p-8 shadow-xl">
+        <form method="POST" enctype="multipart/form-data" id="uploadForm">
+            <div class="upload-area rounded-xl p-8 text-center mb-6" id="uploadArea">
+                <div id="uploadContent">
+                    <i class="fas fa-cloud-upload-alt text-5xl text-white text-opacity-50 mb-4"></i>
+                    <h3 class="text-xl font-semibold text-white mb-2">اسحب الصورة هنا أو اضغط للاختيار</h3>
+                    <p class="text-white text-opacity-70 mb-4">
+                        الأنواع المدعومة: PNG, JPG, JPEG, GIF, WebP
+                    </p>
+                    <p class="text-white text-opacity-50 text-sm">
+                        الحد الأقصى: 16 ميجابايت
+                    </p>
+                </div>
+                
+                <input type="file" 
+                       name="file" 
+                       id="fileInput" 
+                       accept=".png,.jpg,.jpeg,.gif,.webp"
+                       class="hidden"
+                       required>
+                
+                <div id="previewArea" class="hidden">
+                    <img id="previewImage" src="" alt="معاينة" class="max-w-full max-h-64 mx-auto rounded-lg shadow-lg mb-4">
+                    <div id="fileInfo" class="text-white text-opacity-80"></div>
+                </div>
+            </div>
+
+            <div class="flex space-x-4 space-x-reverse">
+                <button type="submit" 
+                        id="uploadBtn"
+                        class="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-lg transition-colors">
+                    <i class="fas fa-upload ml-2"></i>
+                    <span id="uploadBtnText">رفع الصورة</span>
+                </button>
+                
+                <button type="button" 
+                        onclick="resetForm()"
+                        class="bg-gray-600 hover:bg-gray-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors">
+                    <i class="fas fa-redo ml-2"></i>
+                    إعادة تعيين
+                </button>
+                
+                <a href="{{ url_for('index') }}" 
+                   class="bg-gray-600 hover:bg-gray-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors text-center">
+                    <i class="fas fa-arrow-right ml-2"></i>
+                    إلغاء
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Upload Progress -->
+    <div id="progressArea" class="hidden mt-6">
+        <div class="bg-white bg-opacity-10 backdrop-blur-lg rounded-lg p-4">
+            <div class="flex items-center justify-between mb-2">
+                <span class="text-white font-medium">جاري الرفع...</span>
+                <span id="progressPercent" class="text-white text-opacity-80">0%</span>
+            </div>
+            <div class="w-full bg-gray-700 rounded-full h-2">
+                <div id="progressBar" class="bg-blue-600 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upload Guidelines -->
+    <div class="mt-8 bg-white bg-opacity-5 backdrop-blur-lg rounded-xl p-6">
+        <h3 class="text-lg font-semibold text-white mb-4">
+            <i class="fas fa-info-circle ml-2 text-blue-300"></i>
+            إرشادات الرفع
+        </h3>
+        <div class="grid md:grid-cols-2 gap-4 text-white text-opacity-80">
+            <div>
+                <h4 class="font-medium mb-2">الأنواع المدعومة:</h4>
+                <ul class="space-y-1 text-sm">
+                    <li><i class="fas fa-check text-green-400 ml-2"></i>PNG - للصور بخلفية شفافة</li>
+                    <li><i class="fas fa-check text-green-400 ml-2"></i>JPG/JPEG - للصور العادية</li>
+                    <li><i class="fas fa-check text-green-400 ml-2"></i>GIF - للصور المتحركة</li>
+                    <li><i class="fas fa-check text-green-400 ml-2"></i>WebP - للجودة العالية والحجم الصغير</li>
+                </ul>
+            </div>
+            <div>
+                <h4 class="font-medium mb-2">القيود:</h4>
+                <ul class="space-y-1 text-sm">
+                    <li><i class="fas fa-info text-blue-400 ml-2"></i>الحد الأقصى: 16 ميجابايت</li>
+                    <li><i class="fas fa-info text-blue-400 ml-2"></i>يتم إنشاء اسم فريد للملف</li>
+                    <li><i class="fas fa-info text-blue-400 ml-2"></i>الصور عامة ومتاحة للجميع</li>
+                    <li><i class="fas fa-info text-blue-400 ml-2"></i>يتم حفظها في AWS S3</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const uploadArea = document.getElementById('uploadArea');
+const fileInput = document.getElementById('fileInput');
+const uploadContent = document.getElementById('uploadContent');
+const previewArea = document.getElementById('previewArea');
+const previewImage = document.getElementById('previewImage');
+const fileInfo = document.getElementById('fileInfo');
+const uploadForm = document.getElementById('uploadForm');
+const uploadBtn = document.getElementById('uploadBtn');
+const uploadBtnText = document.getElementById('uploadBtnText');
+const progressArea = document.getElementById('progressArea');
+const progressBar = document.getElementById('progressBar');
+const progressPercent = document.getElementById('progressPercent');
+
+// Upload area click handler
+uploadArea.addEventListener('click', function() {
+    if (!previewArea.classList.contains('hidden')) return;
+    fileInput.click();
+});
+
+// Drag and drop handlers
+uploadArea.addEventListener('dragover', function(e) {
+    e.preventDefault();
+    uploadArea.classList.add('border-blue-400', 'bg-blue-500', 'bg-opacity-20');
+});
+
+uploadArea.addEventListener('dragleave', function(e) {
+    e.preventDefault();
+    uploadArea.classList.remove('border-blue-400', 'bg-blue-500', 'bg-opacity-20');
+});
+
+uploadArea.addEventListener('drop', function(e) {
+    e.preventDefault();
+    uploadArea.classList.remove('border-blue-400', 'bg-blue-500', 'bg-opacity-20');
+    
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+        fileInput.files = files;
+        handleFileSelect(files[0]);
+    }
+});
+
+// File input change handler
+fileInput.addEventListener('change', function(e) {
+    if (e.target.files.length > 0) {
+        handleFileSelect(e.target.files[0]);
+    }
+});
+
+function handleFileSelect(file) {
+    // Validate file type
+    const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+        alert('نوع الملف غير مدعوم. يرجى اختيار صورة PNG, JPG, JPEG, GIF, أو WebP.');
+        return;
+    }
+    
+    // Validate file size (16MB)
+    const maxSize = 16 * 1024 * 1024;
+    if (file.size > maxSize) {
+        alert('حجم الملف كبير جداً. الحد الأقصى هو 16 ميجابايت.');
+        return;
+    }
+    
+    // Show preview
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        previewImage.src = e.target.result;
+        uploadContent.classList.add('hidden');
+        previewArea.classList.remove('hidden');
+        
+        // Show file info
+        const sizeInMB = (file.size / 1024 / 1024).toFixed(2);
+        fileInfo.innerHTML = `
+            <p><strong>اسم الملف:</strong> ${file.name}</p>
+            <p><strong>الحجم:</strong> ${sizeInMB} ميجابايت</p>
+            <p><strong>النوع:</strong> ${file.type}</p>
+        `;
+    };
+    reader.readAsDataURL(file);
+}
+
+function resetForm() {
+    fileInput.value = '';
+    uploadContent.classList.remove('hidden');
+    previewArea.classList.add('hidden');
+    progressArea.classList.add('hidden');
+    uploadBtn.disabled = false;
+    uploadBtnText.textContent = 'رفع الصورة';
+}
+
+// Form submission with progress simulation
+uploadForm.addEventListener('submit', function(e) {
+    if (!fileInput.files.length) {
+        e.preventDefault();
+        alert('يرجى اختيار صورة للرفع.');
+        return;
+    }
+    
+    // Show progress
+    uploadBtn.disabled = true;
+    uploadBtnText.textContent = 'جاري الرفع...';
+    progressArea.classList.remove('hidden');
+    
+    // Simulate progress (in real implementation, this would be handled by the server)
+    let progress = 0;
+    const progressInterval = setInterval(function() {
+        progress += Math.random() * 15;
+        if (progress > 90) progress = 90;
+        
+        progressBar.style.width = progress + '%';
+        progressPercent.textContent = Math.round(progress) + '%';
+        
+        if (progress >= 90) {
+            clearInterval(progressInterval);
+        }
+    }, 200);
+});
+</script>
+{% endblock %}

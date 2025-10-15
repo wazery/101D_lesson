@@ -1,0 +1,215 @@
+name: Simple EC2 Deployment
+
+on:
+  push:
+    branches: [ master, staging ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+        - staging
+        - production
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Deploy to Staging
+      if: github.ref == 'refs/heads/staging' || github.event.inputs.environment == 'staging'
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+        host: ${{ secrets.STAGING_HOST }}
+        username: ${{ secrets.STAGING_USER }}
+        key: ${{ secrets.STAGING_SSH_KEY }}
+        script: |
+          # Create app directory in user home
+          mkdir -p ~/flask-app
+          cd ~/flask-app
+          
+          # Force stop and remove any existing containers and images
+          echo "🧹 Cleaning up existing containers..."
+          docker stop flask-app || true
+          docker rm flask-app || true
+          
+          # Also stop any containers using port 8080
+          docker ps --filter "publish=8080" -q | xargs -r docker stop
+          docker ps -a --filter "publish=8080" -q | xargs -r docker rm
+          
+          # Clean up unused images
+          docker rmi flask-s3-gallery:latest || true
+          docker system prune -f
+      
+    - name: Copy files to staging server
+      if: github.ref == 'refs/heads/staging' || github.event.inputs.environment == 'staging'
+      uses: appleboy/scp-action@v0.1.5
+      with:
+        host: ${{ secrets.STAGING_HOST }}
+        username: ${{ secrets.STAGING_USER }}
+        key: ${{ secrets.STAGING_SSH_KEY }}
+        source: "app.py,requirements.txt,Dockerfile,templates/"
+        target: "flask-app"
+
+    - name: Build and run on staging
+      if: github.ref == 'refs/heads/staging' || github.event.inputs.environment == 'staging'
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+        host: ${{ secrets.STAGING_HOST }}
+        username: ${{ secrets.STAGING_USER }}
+        key: ${{ secrets.STAGING_SSH_KEY }}
+        script: |
+          set -e  # Exit on any error
+          cd ~/flask-app
+          
+          # Create .env file from GitHub secrets
+          cat > .env << EOF
+          FLASK_ENV=development
+          SECRET_KEY=${{ secrets.SECRET_KEY }}
+          AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION=${{ secrets.AWS_REGION }}
+          S3_BUCKET_NAME=${{ secrets.S3_BUCKET_NAME }}
+          EOF
+          
+          # Verify .env file was created
+          echo "✅ Created .env file"
+          ls -la .env
+          
+          # Build new image
+          echo "🔨 Building Docker image..."
+          docker build -t flask-s3-gallery:latest .
+          
+          # Check if port 8080 is free
+          echo "🔍 Checking if port 8080 is available..."
+          if netstat -tlnp | grep :8080; then
+            echo "❌ Port 8080 is still in use, killing processes..."
+            sudo fuser -k 8080/tcp || true
+            sleep 2
+          fi
+          
+          # Run new container
+          echo "🚀 Starting container..."
+          docker run -d \
+            --name flask-app \
+            -p 8080:5000 \
+            --env-file .env \
+            --restart unless-stopped \
+            flask-s3-gallery:latest
+          
+          # Verify container is running
+          echo "🔍 Checking container status..."
+          docker ps | grep flask-app
+          
+          # Health check
+          echo "🏥 Performing health check..."
+          sleep 15
+          curl -f http://localhost:8080/health
+          echo "✅ Staging deployment successful!"
+
+    - name: Deploy to Production
+      if: github.ref == 'refs/heads/master' || github.event.inputs.environment == 'production'
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+        host: ${{ secrets.PRODUCTION_HOST }}
+        username: ${{ secrets.PRODUCTION_USER }}
+        key: ${{ secrets.PRODUCTION_SSH_KEY }}
+        script: |
+          # Create app directory in user home
+          mkdir -p ~/flask-app
+          cd ~/flask-app
+          
+          # Force stop and remove any existing containers and images
+          echo "🧹 Cleaning up existing containers..."
+          docker stop flask-app || true
+          docker rm flask-app || true
+          
+          # Also stop any containers using port 80
+          docker ps --filter "publish=80" -q | xargs -r docker stop
+          docker ps -a --filter "publish=80" -q | xargs -r docker rm
+          
+          # Clean up unused images
+          docker rmi flask-s3-gallery:latest || true
+          docker system prune -f
+
+    - name: Copy files to production server
+      if: github.ref == 'refs/heads/main' || github.event.inputs.environment == 'production'
+      uses: appleboy/scp-action@v0.1.5
+      with:
+        host: ${{ secrets.PRODUCTION_HOST }}
+        username: ${{ secrets.PRODUCTION_USER }}
+        key: ${{ secrets.PRODUCTION_SSH_KEY }}
+        source: "app.py,requirements.txt,Dockerfile,templates/"
+        target: "flask-app"
+
+    - name: Build and run on production
+      if: github.ref == 'refs/heads/main' || github.event.inputs.environment == 'production'
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+        host: ${{ secrets.PRODUCTION_HOST }}
+        username: ${{ secrets.PRODUCTION_USER }}
+        key: ${{ secrets.PRODUCTION_SSH_KEY }}
+        script: |
+          set -e  # Exit on any error
+          cd ~/flask-app
+          
+          # Create .env file from GitHub secrets
+          cat > .env << EOF
+          FLASK_ENV=production
+          SECRET_KEY=${{ secrets.SECRET_KEY }}
+          AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION=${{ secrets.AWS_REGION }}
+          S3_BUCKET_NAME=${{ secrets.S3_BUCKET_NAME }}
+          EOF
+          
+          # Verify .env file was created
+          echo "✅ Created .env file"
+          ls -la .env
+          
+          # Build new image
+          echo "🔨 Building Docker image..."
+          docker build -t flask-s3-gallery:latest .
+          
+          # Check if port 80 is free
+          echo "🔍 Checking if port 80 is available..."
+          if netstat -tlnp | grep :80; then
+            echo "❌ Port 80 is still in use, killing processes..."
+            sudo fuser -k 80/tcp || true
+            sleep 2
+          fi
+          
+          # Run new container
+          echo "🚀 Starting container..."
+          docker run -d \
+            --name flask-app \
+            -p 80:5000 \
+            --env-file .env \
+            --restart unless-stopped \
+            flask-s3-gallery:latest
+          
+          # Verify container is running
+          echo "🔍 Checking container status..."
+          docker ps | grep flask-app
+          
+          # Health check
+          echo "🏥 Performing health check..."
+          sleep 15
+          curl -f http://localhost/health
+          echo "✅ Production deployment successful!"
+    
+    - name: Deployment Complete
+      run: |
+        if [ "${{ github.ref }}" == "refs/heads/staging" ]; then
+          echo "🚀 Deployed to STAGING server"
+        elif [ "${{ github.ref }}" == "refs/heads/main" ]; then
+          echo "🚀 Deployed to PRODUCTION server"
+        else
+          echo "🚀 Manual deployment completed"
+        fi

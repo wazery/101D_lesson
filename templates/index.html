@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+
+{% block title %}معرض الصور - الرئيسية{% endblock %}
+
+{% block content %}
+<div class="text-center mb-12">
+    <h1 class="text-4xl font-bold text-white mb-4">
+        <i class="fas fa-images text-blue-300 ml-3"></i>
+        معرض الصور
+    </h1>
+    <p class="text-xl text-white text-opacity-80 max-w-2xl mx-auto">
+        استعرض مجموعة صورك المحفوظة في AWS S3 بأناقة وسهولة
+    </p>
+</div>
+
+{% if images %}
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        {% for image in images %}
+            <div class="image-card bg-white bg-opacity-10 backdrop-blur-lg rounded-xl overflow-hidden shadow-xl">
+                <div class="aspect-square overflow-hidden">
+                    <img src="{{ image.url }}" 
+                         alt="{{ image.filename }}" 
+                         class="w-full h-full object-cover hover:scale-110 transition-transform duration-300"
+                         loading="lazy"
+                         onclick="openImageModal('{{ image.url }}', '{{ image.filename }}')">
+                </div>
+                <div class="p-4">
+                    <h3 class="font-semibold text-white truncate mb-2" title="{{ image.filename }}">
+                        {{ image.filename }}
+                    </h3>
+                    <div class="flex justify-between items-center text-sm text-white text-opacity-70">
+                        <span>
+                            <i class="fas fa-weight-hanging ml-1"></i>
+                            {{ "%.1f"|format(image.size / 1024 / 1024) }} MB
+                        </span>
+                        <span>
+                            <i class="fas fa-calendar ml-1"></i>
+                            {{ image.last_modified }}
+                        </span>
+                    </div>
+                    <div class="mt-3 flex space-x-2 space-x-reverse">
+                        <button onclick="copyImageUrl('{{ image.url }}')" 
+                                class="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-sm transition-colors">
+                            <i class="fas fa-copy ml-1"></i>
+                            نسخ الرابط
+                        </button>
+                        <a href="{{ image.url }}" target="_blank" 
+                           class="flex-1 bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg text-sm transition-colors text-center">
+                            <i class="fas fa-external-link-alt ml-1"></i>
+                            فتح
+                        </a>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+
+    <div class="text-center mt-12">
+        <p class="text-white text-opacity-70">
+            <i class="fas fa-images ml-2"></i>
+            إجمالي الصور: {{ images|length }}
+        </p>
+    </div>
+{% else %}
+    <div class="text-center py-16">
+        <div class="bg-white bg-opacity-10 backdrop-blur-lg rounded-2xl p-12 max-w-md mx-auto">
+            <i class="fas fa-image text-6xl text-white text-opacity-50 mb-6"></i>
+            <h2 class="text-2xl font-bold text-white mb-4">لا توجد صور بعد</h2>
+            <p class="text-white text-opacity-70 mb-8">
+                ابدأ بإضافة صورك الأولى إلى المعرض
+            </p>
+            <a href="{{ url_for('upload') }}" 
+               class="inline-flex items-center px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors">
+                <i class="fas fa-upload ml-2"></i>
+                رفع صورة جديدة
+            </a>
+        </div>
+    </div>
+{% endif %}
+
+<!-- Image Modal -->
+<div id="imageModal" class="hidden fixed inset-0 bg-black bg-opacity-80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="relative max-w-4xl max-h-full">
+        <button onclick="closeImageModal()" 
+                class="absolute top-4 left-4 bg-white bg-opacity-20 hover:bg-opacity-30 text-white p-2 rounded-full transition-colors z-10">
+            <i class="fas fa-times text-xl"></i>
+        </button>
+        <img id="modalImage" src="" alt="" class="max-w-full max-h-full rounded-lg shadow-2xl">
+        <div class="absolute bottom-4 left-4 right-4 bg-black bg-opacity-50 backdrop-blur-sm rounded-lg p-4">
+            <h3 id="modalTitle" class="text-white font-semibold"></h3>
+        </div>
+    </div>
+</div>
+
+<script>
+function openImageModal(url, filename) {
+    document.getElementById('modalImage').src = url;
+    document.getElementById('modalTitle').textContent = filename;
+    document.getElementById('imageModal').classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeImageModal() {
+    document.getElementById('imageModal').classList.add('hidden');
+    document.body.style.overflow = 'auto';
+}
+
+function copyImageUrl(url) {
+    navigator.clipboard.writeText(url).then(function() {
+        // Show success message
+        const toast = document.createElement('div');
+        toast.className = 'fixed top-4 right-4 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+        toast.innerHTML = '<i class="fas fa-check ml-2"></i>تم نسخ الرابط!';
+        document.body.appendChild(toast);
+        
+        setTimeout(function() {
+            toast.remove();
+        }, 3000);
+    }).catch(function(err) {
+        console.error('Failed to copy: ', err);
+    });
+}
+
+// Close modal on ESC key
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+        closeImageModal();
+    }
+});
+
+// Close modal on background click
+document.getElementById('imageModal').addEventListener('click', function(event) {
+    if (event.target === this) {
+        closeImageModal();
+    }
+});
+</script>
+{% endblock %}
