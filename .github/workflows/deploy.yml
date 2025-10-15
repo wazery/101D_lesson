@@ -3,6 +3,8 @@ name: Simple EC2 Deployment
 on:
   push:
     branches: [ master, staging ]
+  pull_request:
+    branches: [ main, staging ]
   workflow_dispatch:
     inputs:
       environment:
